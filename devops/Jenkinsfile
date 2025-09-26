@@ -1,0 +1,20 @@
+pipeline {
+    agent any
+    stages {
+        stage('Compile') {
+            steps {
+                sh 'javac -d bin backend/*.java'
+            }
+        }
+        stage('Test') {
+            steps {
+                // Run your Java tests here
+            }
+        }
+        stage('Payroll Batch') {
+            steps {
+                sh 'java -cp bin PayrollQueueProcessor'
+            }
+        }
+    }
+}

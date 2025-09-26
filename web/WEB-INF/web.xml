@@ -1,0 +1,38 @@
+<web-app>
+    <servlet>
+        <servlet-name>EmployeeServlet</servlet-name>
+        <servlet-class>backend.EmployeeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>EmployeeServlet</servlet-name>
+        <url-pattern>/employees</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>DepartmentServlet</servlet-name>
+        <servlet-class>backend.DepartmentServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>DepartmentServlet</servlet-name>
+        <url-pattern>/departments</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>PayrollServlet</servlet-name>
+        <servlet-class>backend.PayrollServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PayrollServlet</servlet-name>
+        <url-pattern>/payrolls</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>AttendanceServlet</servlet-name>
+        <servlet-class>backend.AttendanceServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AttendanceServlet</servlet-name>
+        <url-pattern>/attendance</url-pattern>
+    </servlet-mapping>
+
+</web-app>
