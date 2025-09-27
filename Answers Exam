@@ -1,0 +1,536 @@
+LAptopControllerTest.java
+
+package com.example.laptopstore.test;
+
+import com.example.laptopstore.dto.LaptopDTO;
+import com.example.laptopstore.service.LaptopService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+public class LaptopControllerTest {
+
+    @Mock
+    private LaptopService laptopService;
+
+    @InjectMocks
+    private com.example.laptopstore.controller.LaptopController laptopController;
+
+    private MockMvc mockMvc;
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setup() {
+        MockitoAnnotations.openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(laptopController).build();
+        objectMapper = new ObjectMapper();
+    }
+
+    private LaptopDTO createSampleDTO() {
+        return new LaptopDTO(1L, "Dell XPS", 1500.0, "Dell", "512GB", "16GB", "i7");
+    }
+
+    @Test
+    void testCreateLaptop() throws Exception {
+        LaptopDTO dto = createSampleDTO();
+        when(laptopService.createLaptop(any())).thenReturn(dto);
+
+        mockMvc.perform(post("/laptops")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Dell XPS"));
+    }
+
+    @Test
+    void testGetLaptopById() throws Exception {
+        LaptopDTO dto = createSampleDTO();
+        when(laptopService.getLaptopById(1L)).thenReturn(dto);
+
+        mockMvc.perform(get("/laptops/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.brand").value("Dell"));
+    }
+
+    @Test
+    void testGetAllLaptops() throws Exception {
+        when(laptopService.getAllLaptops()).thenReturn(List.of(createSampleDTO()));
+
+        mockMvc.perform(get("/laptops"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void testUpdateLaptop() throws Exception {
+        LaptopDTO dto = createSampleDTO();
+        when(laptopService.updateLaptop(eq(1L), any())).thenReturn(dto);
+
+        mockMvc.perform(put("/laptops/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.processor").value("i7"));
+    }
+
+    @Test
+    void testDeleteLaptop() throws Exception {
+        doNothing().when(laptopService).deleteLaptop(1L);
+
+        mockMvc.perform(delete("/laptops/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void testSearchLaptops() throws Exception {
+        when(laptopService.searchLaptops("Dell XPS", 1500.0, "Dell"))
+                .thenReturn(List.of(createSampleDTO()));
+
+        mockMvc.perform(get("/laptops/search")
+                .param("name", "Dell XPS")
+                .param("price", "1500.0")
+                .param("brand", "Dell"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+}
+
+
+
+
+LaptopServiceImplTest.java
+
+package com.example.laptopstore.test;
+
+import com.example.laptopstore.dto.LaptopDTO;
+import com.example.laptopstore.entity.Laptop;
+import com.example.laptopstore.exception.ResourceNotFoundException;
+import com.example.laptopstore.repo.LaptopRepository;
+import com.example.laptopstore.service.impl.LaptopServiceImpl;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+public class LaptopServiceImplTest {
+
+    @Mock
+    private LaptopRepository laptopRepository;
+
+    @InjectMocks
+    private LaptopServiceImpl laptopService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    private Laptop createSampleLaptop() {
+        return new Laptop(1L, "Dell XPS", 1500.0, "Dell", "512GB", "16GB", "i7");
+    }
+
+    private LaptopDTO createSampleLaptopDTO() {
+        return new LaptopDTO(1L, "Dell XPS", 1500.0, "Dell", "512GB", "16GB", "i7");
+    }
+
+    @Test
+    void testGetAllLaptops() {
+        List<Laptop> laptops = List.of(createSampleLaptop());
+        when(laptopRepository.findAll()).thenReturn(laptops);
+
+        List<LaptopDTO> result = laptopService.getAllLaptops();
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testGetLaptopById_Found() {
+        when(laptopRepository.findById(1L)).thenReturn(Optional.of(createSampleLaptop()));
+
+        LaptopDTO dto = laptopService.getLaptopById(1L);
+
+        assertNotNull(dto);
+        assertEquals("Dell XPS", dto.getName());
+    }
+
+    @Test
+    void testGetLaptopById_NotFound() {
+        when(laptopRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> laptopService.getLaptopById(1L));
+    }
+
+    @Test
+    void testCreateLaptop() {
+        Laptop laptop = createSampleLaptop();
+        when(laptopRepository.save(any())).thenReturn(laptop);
+
+        LaptopDTO dto = laptopService.createLaptop(createSampleLaptopDTO());
+
+        assertEquals("Dell XPS", dto.getName());
+    }
+
+    @Test
+    void testUpdateLaptop_Found() {
+        Laptop existing = createSampleLaptop();
+        when(laptopRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(laptopRepository.save(any())).thenReturn(existing);
+
+        LaptopDTO updateDTO = new LaptopDTO(null, "Dell XPS 15", 1600.0, "Dell", "1TB", "32GB", "i9");
+        LaptopDTO updated = laptopService.updateLaptop(1L, updateDTO);
+
+        assertEquals("Dell XPS 15", updated.getName());
+        assertEquals("i9", updated.getProcessor());
+    }
+
+    @Test
+    void testUpdateLaptop_NotFound() {
+        when(laptopRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            laptopService.updateLaptop(1L, createSampleLaptopDTO());
+        });
+    }
+
+    @Test
+    void testDeleteLaptop_Found() {
+        when(laptopRepository.existsById(1L)).thenReturn(true);
+        doNothing().when(laptopRepository).deleteById(1L);
+
+        boolean result = laptopService.deleteLaptop(1L);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void testDeleteLaptop_NotFound() {
+        when(laptopRepository.existsById(1L)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> laptopService.deleteLaptop(1L));
+    }
+
+    @Test
+    void testSearchLaptopsByName() {
+        when(laptopRepository.findByName("Dell XPS")).thenReturn(List.of(createSampleLaptop()));
+
+        List<LaptopDTO> result = laptopService.searchLaptopsByName("Dell XPS");
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchLaptopsByPrice() {
+        when(laptopRepository.findByPrice(1500.0)).thenReturn(List.of(createSampleLaptop()));
+
+        List<LaptopDTO> result = laptopService.searchLaptopsByPrice(1500.0);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchLaptopsByBrand() {
+        when(laptopRepository.findByBrand("Dell")).thenReturn(List.of(createSampleLaptop()));
+
+        List<LaptopDTO> result = laptopService.searchLaptopsByBrand("Dell");
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchLaptops() {
+        when(laptopRepository.findByNameOrPriceOrBrand("Dell XPS", 1500.0, "Dell"))
+                .thenReturn(List.of(createSampleLaptop()));
+
+        List<LaptopDTO> result = laptopService.searchLaptops("Dell XPS", 1500.0, "Dell");
+
+        assertEquals(1, result.size());
+    }
+}
+
+
+
+MobileservImpltest.java
+package com.example.mobilestore.service.impl;
+
+import com.example.mobilestore.dto.mobileDTO;
+import com.example.mobilestore.entity.mobile;
+import com.example.mobilestore.exception.ResourceNotFoundException;
+import com.example.mobilestore.repo.mobileRepository;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+public class mobileServiceImplTest {
+
+    @Mock
+    private mobileRepository mobileRepository;
+
+    @InjectMocks
+    private mobileServiceImpl mobileService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    private mobile createSampleMobile() {
+        return new mobile(1L, "iPhone", 999.0, "Apple", "128GB", "6GB", "A15 Bionic");
+    }
+
+    private mobileDTO createSampleMobileDTO() {
+        return new mobileDTO(1L, "iPhone", 999.0, "Apple", "128GB", "6GB", "A15 Bionic");
+    }
+
+    @Test
+    void testGetAllmobiles() {
+        List<mobile> mobiles = Arrays.asList(createSampleMobile());
+        when(mobileRepository.findAll()).thenReturn(mobiles);
+
+        List<mobileDTO> result = mobileService.getAllmobiles();
+
+        assertEquals(1, result.size());
+        assertEquals("iPhone", result.get(0).getName());
+    }
+
+    @Test
+    void testGetmobileById_Found() {
+        mobile m = createSampleMobile();
+        when(mobileRepository.findById(1L)).thenReturn(Optional.of(m));
+
+        mobileDTO dto = mobileService.getmobileById(1L);
+
+        assertNotNull(dto);
+        assertEquals("iPhone", dto.getName());
+    }
+
+    @Test
+    void testGetmobileById_NotFound() {
+        when(mobileRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            mobileService.getmobileById(1L);
+        });
+    }
+
+    @Test
+    void testCreatemobile() {
+        mobile input = createSampleMobile();
+        when(mobileRepository.save(any(mobile.class))).thenReturn(input);
+
+        mobileDTO dto = createSampleMobileDTO();
+        mobileDTO result = mobileService.createmobile(dto);
+
+        assertNotNull(result);
+        assertEquals("iPhone", result.getName());
+    }
+
+    @Test
+    void testUpdatemobile_Found() {
+        mobile existing = createSampleMobile();
+        when(mobileRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(mobileRepository.save(any(mobile.class))).thenReturn(existing);
+
+        mobileDTO updates = new mobileDTO(null, "iPhone 14", 1099.0, "Apple", "256GB", "6GB", "A16");
+        mobileDTO updated = mobileService.updatemobile(1L, updates);
+
+        assertEquals("iPhone 14", updated.getName());
+        assertEquals("256GB", updated.getStorage());
+    }
+
+    @Test
+    void testUpdatemobile_NotFound() {
+        when(mobileRepository.findById(1L)).thenReturn(Optional.empty());
+
+        mobileDTO dto = createSampleMobileDTO();
+        assertThrows(ResourceNotFoundException.class, () -> {
+            mobileService.updatemobile(1L, dto);
+        });
+    }
+
+    @Test
+    void testDeletemobile_Success() {
+        when(mobileRepository.existsById(1L)).thenReturn(true);
+        doNothing().when(mobileRepository).deleteById(1L);
+
+        boolean result = mobileService.deletemobile(1L);
+
+        assertTrue(result);
+        verify(mobileRepository).deleteById(1L);
+    }
+
+    @Test
+    void testDeletemobile_NotFound() {
+        when(mobileRepository.existsById(1L)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            mobileService.deletemobile(1L);
+        });
+    }
+
+    @Test
+    void testSearchmobilesByName() {
+        when(mobileRepository.findByName("iPhone")).thenReturn(List.of(createSampleMobile()));
+
+        List<mobileDTO> result = mobileService.searchmobilesByName("iPhone");
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchmobilesByPrice() {
+        when(mobileRepository.findByPrice(999.0)).thenReturn(List.of(createSampleMobile()));
+
+        List<mobileDTO> result = mobileService.searchmobilesByPrice(999.0);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchmobilesByBrand() {
+        when(mobileRepository.findByBrand("Apple")).thenReturn(List.of(createSampleMobile()));
+
+        List<mobileDTO> result = mobileService.searchmobilesByBrand("Apple");
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchmobiles() {
+        when(mobileRepository.findByNameOrPriceOrBrand("iPhone", 999.0, "Apple"))
+                .thenReturn(List.of(createSampleMobile()));
+
+        List<mobileDTO> result = mobileService.searchmobiles("iPhone", 999.0, "Apple");
+
+        assertEquals(1, result.size());
+    }
+}
+
+
+Mobilecontrollertest.java
+package com.example.mobilestore.controller;
+
+import com.example.mobilestore.dto.mobileDTO;
+import com.example.mobilestore.service.mobileService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.*;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+public class mobileControllerTest {
+
+    @Mock
+    private mobileService mobileService;
+
+    @InjectMocks
+    private mobileController mobileController;
+
+    private MockMvc mockMvc;
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setup() {
+        MockitoAnnotations.openMocks(this);
+        mockMvc = MockMvcBuilders.standaloneSetup(mobileController).build();
+        objectMapper = new ObjectMapper();
+    }
+
+    private mobileDTO createSampleDTO() {
+        return new mobileDTO(1L, "iPhone", 999.0, "Apple", "128GB", "6GB", "A15");
+    }
+
+    @Test
+    void testCreatemobile() throws Exception {
+        mobileDTO dto = createSampleDTO();
+        when(mobileService.createmobile(any())).thenReturn(dto);
+
+        mockMvc.perform(post("/mobiles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("iPhone"));
+    }
+
+    @Test
+    void testGetmobileById() throws Exception {
+        mobileDTO dto = createSampleDTO();
+        when(mobileService.getmobileById(1L)).thenReturn(dto);
+
+        mockMvc.perform(get("/mobiles/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.brand").value("Apple"));
+    }
+
+    @Test
+    void testGetAllmobiles() throws Exception {
+        when(mobileService.getAllmobiles()).thenReturn(List.of(createSampleDTO()));
+
+        mockMvc.perform(get("/mobiles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void testUpdatemobile() throws Exception {
+        mobileDTO dto = createSampleDTO();
+        when(mobileService.updatemobile(eq(1L), any())).thenReturn(dto);
+
+        mockMvc.perform(put("/mobiles/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.processor").value("A15"));
+    }
+
+    @Test
+    void testDeletemobile() throws Exception {
+        doNothing().when(mobileService).deletemobile(1L);
+
+        mockMvc.perform(delete("/mobiles/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void testSearchmobiles() throws Exception {
+        when(mobileService.searchmobiles("iPhone", 999.0, "Apple"))
+                .thenReturn(List.of(createSampleDTO()));
+
+        mockMvc.perform(get("/mobiles/search")
+                .param("name", "iPhone")
+                .param("price", "999.0")
+                .param("brand", "Apple"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+}
